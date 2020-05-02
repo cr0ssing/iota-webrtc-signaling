@@ -1,6 +1,5 @@
 const iota = require('@iota/core');
 const converter = require('@iota/converter');
-const TX_LENGTH = require('@iota/transaction').TRANSACTION_LENGTH / 3;
 const prepareTransfers = iota.createPrepareTransfers();
 
 const OFFER_TAG = 'A99999999999999999999999999';
@@ -67,19 +66,17 @@ function getClient() {
 
 async function publish(data, address, tag) {
   const message = converter.asciiToTrytes(JSON.stringify(data));
-
-  const transfers = [];
-  for (let i = 0; i < Math.ceil(message.length / TX_LENGTH); i++) {
-    transfers.push({
+  const transfers = [
+    {
       address,
       value: 0,
-      message: message.slice(i * TX_LENGTH, (i + 1) * TX_LENGTH),
+      message,
       tag,
-    });
-  }
+    },
+  ];
+
   const client = getClient();
   const trytes = await prepareTransfers('9'.repeat(81), transfers);
-
   return await client.sendTrytes(trytes, 3, 10);
 }
 
