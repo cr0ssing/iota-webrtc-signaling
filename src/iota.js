@@ -51,7 +51,12 @@ function extractData(txs) {
     .map((t) => t.signatureMessageFragment)
     .reduce((acc, v) => acc + v, '');
   const json = trytesToString(trytes);
-  return JSON.parse(json);
+  try {
+    return JSON.parse(json);
+  } catch (e) {
+    console.error('Failed to parse', json);
+    throw e;
+  }
 }
 
 function getClient() {

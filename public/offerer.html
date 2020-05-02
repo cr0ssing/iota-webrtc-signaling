@@ -15,7 +15,8 @@
 
     <button id="offerRecdBtn">Stop fetching answers</button>
 
-    <input id="copyLink" style="width: 30em;" /> <div id="link"></div>
+    <input id="copyLink" style="width: 30em;" />
+    <div id="link"></div>
 
     <div id="chatlog"></div>
 
@@ -23,17 +24,26 @@
       const setIntervalAsync = SetIntervalAsync.fixed.setIntervalAsync;
       const clearIntervalAsync = SetIntervalAsync.clearIntervalAsync;
 
-      var cfg = {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            {
-              urls: 'turn:numb.viagenie.ca',
-              credential: 'muazkh',
-              username: 'webrtc@live.com',
-            },
-          ],
-        },
-        con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
+      const cfg = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          {
+            urls: 'turn:numb.viagenie.ca',
+            credential: 'muazkh',
+            username: 'webrtc@live.com',
+          },
+        ],
+      };
+      const con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
+
+      const origin =
+        window.location.protocol +
+        '//' +
+        (window.location.host ? window.location.host + '/' : '');
+      const receiverUrl =
+        origin +
+        location.pathname.substring(0, location.pathname.lastIndexOf('/')) +
+        '/receiver.html';
 
       /* THIS IS ALICE, THE CALLER/SENDER */
 
@@ -98,14 +108,10 @@
           IOTA.publishOffer(pc1.localDescription)
             .then((b) => {
               console.log(b[0].hash);
+              writeToChatLog('Published offer', 'text-success');
               address = b[0].address;
-              const link =
-                location.pathname.substring(
-                  0,
-                  location.pathname.lastIndexOf('/')
-                ) +
-                '/receiver.html?bundle=' +
-                b[0].hash;
+              const link = receiverUrl + '?bundle=' + b[0].hash;
+              console.log(link);
               $('#copyLink').val(link);
               $('#link').append(`<a href="${link}" target="_blank">Join</a>`);
             })
