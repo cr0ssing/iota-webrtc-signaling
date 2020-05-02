@@ -1,0 +1,20 @@
+{
+  "name": "iota-webrtc-signaling",
+  "version": "0.0.1",
+  "description": "",
+  "scripts": {
+    "build-lib": "browserify src/iota.js -s IOTA -d > lib/iota.js"
+  },
+  "author": {
+    "name": "Robin Lamberti",
+    "email": "lamberti.robin@gmail.com"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@iota/core": "1.0.0-beta.29"
+  },
+  "devDependencies": {
+    "uglify-js": "^3.9.1",
+    "browserify": "^16.5.1"
+  }
+}
