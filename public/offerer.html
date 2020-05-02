@@ -36,10 +36,7 @@
       };
       const con = { optional: [{ DtlsSrtpKeyAgreement: true }] };
 
-      const origin =
-        window.location.protocol +
-        '//' +
-        (window.location.host ? window.location.host + '/' : '');
+      const origin = window.location.protocol + '//' + window.location.host;
       const receiverUrl =
         origin +
         location.pathname.substring(0, location.pathname.lastIndexOf('/')) +
