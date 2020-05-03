@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
-    "build-lib": "browserify src/iota.js -s IOTA | uglifyjs > lib/iota.js"
+    "build-offerer": "browserify src/offerer.js -s Offerer | uglifyjs > lib/offerer.min.js",
+    "build-receiver": "browserify src/receiver.js -s Receiver | uglifyjs > lib/receiver.min.js"
   },
   "author": {
     "name": "Robin Lamberti",
@@ -12,6 +13,8 @@
   "license": "ISC",
   "dependencies": {
     "@iota/core": "1.0.0-beta.29",
+    "jquery": "^3.5.0",
+    "set-interval-async": "^1.0.32",
     "uglify-es": "^3.3.9"
   },
   "devDependencies": {
