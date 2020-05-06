@@ -9,14 +9,18 @@ const args = location.search
   .reduce((acc, v) => ({ ...acc, ...v }), {});
 
 let address;
+let index;
 
 if (args.bundle) {
-  console.log('Retrieving offer from', args.bundle);
+  console.info('Retrieving offer from', args.bundle);
   IOTA.fetchOffer(args.bundle).then((result) => {
-    address = result.address;
-    var offerDesc = new RTCSessionDescription(result.offer);
-    console.log('Received remote offer', offerDesc);
     writeToChatLog('Received remote offer', 'text-success');
+    console.info('Received remote offer');
+    console.debug(result);
+    index = Math.floor(result.offer.length * Math.random());
+    console.info('Use index', index);
+    address = result.address;
+    const offerDesc = new RTCSessionDescription(result.offer[index]);
     handleOfferFromPC1(offerDesc);
   });
 }
@@ -44,20 +48,19 @@ const sdpConstraints = {
 var pc2 = new RTCPeerConnection(cfg, con);
 let dc2 = null;
 
-pc2.ondatachannel = function (e) {
-  var datachannel = e.channel || e; // Chrome sends event, FF sends raw channel
-  console.log('Received datachannel (pc2)', arguments);
-  dc2 = datachannel;
-  dc2.onopen = function (e) {
+pc2.ondatachannel = (e) => {
+  const datachannel = e.channel || e; // Chrome sends event, FF sends raw channel
+  console.debug('Received datachannel');
+  datachannel.onopen = () => {
     writeToChatLog('Datachannel connected', 'text-success');
-    console.log('data channel connect');
+    console.info('Data channel connect');
   };
-  dc2.onmessage = function (e) {
-    console.log('Got message (pc2)', e.data);
+  datachannel.onmessage = (e) => {
+    console.info('Got message', e.data);
     writeToChatLog(e.data, 'text-info');
     if (e.data === 'ping') {
       const msg = 'pong';
-      dc2.send(msg);
+      datachannel.send(msg);
       writeToChatLog(msg, 'text-success');
     }
   };
@@ -66,55 +69,36 @@ pc2.ondatachannel = function (e) {
 function handleOfferFromPC1(offerDesc) {
   pc2.setRemoteDescription(offerDesc);
   pc2.createAnswer(
-    function (answerDesc) {
+    (answerDesc) => {
       writeToChatLog('Created local answer', 'text-success');
-      console.log('Created local answer: ', answerDesc);
+      console.debug('Created local answer');
       pc2.setLocalDescription(answerDesc);
     },
-    function () {
+    () => {
       console.warn("Couldn't create offer");
     },
     sdpConstraints
   );
 }
 
-pc2.onicecandidate = function (e) {
-  // console.log('ICE candidate (pc2)', e);
+pc2.onicecandidate = (e) => {
   if (e.candidate == null) {
-    console.log(JSON.stringify(pc2.localDescription));
-    IOTA.publishAnswer(pc2.localDescription, address).then((b) => {
-      console.log(b[0].hash);
+    const answer = {
+      localDescription: pc2.localDescription,
+      bundle: args.bundle,
+      index,
+    };
+    IOTA.publishAnswer(answer, address).then((b) => {
+      console.debug(b[0].hash);
       writeToChatLog('Published answer', 'text-success');
     });
   }
 };
 
-function onsignalingstatechange(state) {
-  console.info('signaling state change:', state);
-}
-
-function oniceconnectionstatechange(state) {
-  console.info('ice connection state change:', state);
-}
-
-function onicegatheringstatechange(state) {
-  console.info('ice gathering state change:', state);
-}
-
-pc2.onsignalingstatechange = onsignalingstatechange;
-pc2.oniceconnectionstatechange = oniceconnectionstatechange;
-pc2.onicegatheringstatechange = onicegatheringstatechange;
-
-function handleCandidateFromPC1(iceCandidate) {
-  pc2.addIceCandidate(iceCandidate);
-}
-
-function handleOnconnection() {
-  console.log('Datachannel connected');
+pc2.onconnection = () => {
+  console.info('Datachannel connected');
   writeToChatLog('Datachannel connected', 'text-success');
-}
-
-pc2.onconnection = handleOnconnection;
+};
 
 function getTimestamp() {
   var totalSec = new Date().getTime() / 1000;

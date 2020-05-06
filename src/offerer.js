@@ -1,6 +1,6 @@
 const intervalAsync = require('set-interval-async');
-const setIntervalAsync = intervalAsync.fixed.setIntervalAsync; // SetIntervalAsync.fixed.setIntervalAsync;
-const clearIntervalAsync = intervalAsync.clearIntervalAsync; // SetIntervalAsync.clearIntervalAsync;
+const setIntervalAsync = intervalAsync.fixed.setIntervalAsync;
+const clearIntervalAsync = intervalAsync.clearIntervalAsync;
 const $ = require('jquery');
 const IOTA = require('./iota');
 
@@ -30,34 +30,31 @@ const receiverUrl =
   location.pathname.substring(0, location.pathname.lastIndexOf('/')) +
   '/receiver.html';
 
-/* THIS IS ALICE, THE CALLER/SENDER */
-
 let address;
 let interval;
-const connected = [];
+const connections = new Array(5).fill(undefined).map(() => createConnection());
+const inits = connections.map((c) => {
+  c.createOffer(sdpConstraints).then((offer) => c.setLocalDescription(offer));
+  return new Promise((res, rej) => {
+    c.onicecandidate = (e) => {
+      if (e.candidate == null) {
+        res();
+      }
+    };
+  });
+});
+const processed = [];
+const usedIndices = [];
 
-const pc1 = createConnection();
-pc1.createOffer(
-  function (desc) {
-    mainDesc = desc;
-    pc1.setLocalDescription(
-      desc,
-      function () {},
-      function () {}
-    );
-    console.info('created first offer', desc);
-  },
-  function () {
-    console.warn("Couldn't create first offer");
-  },
-  sdpConstraints
-);
-let current = pc1;
+Promise.all(inits).then(() => {
+  console.info('Created offers');
+  return publishOffer().then(() => waitForAnswers());
+});
 
 function createConnection() {
   const c = new RTCPeerConnection(cfg, con);
 
-  c.onconnection = function handleOnconnection() {
+  c.onconnection = () => {
     console.info('Datachannel connected');
     writeToChatLog('Datachannel connected', 'text-success');
   };
@@ -70,7 +67,7 @@ function createConnection() {
   try {
     const dc1 = c.createDataChannel('test', { reliable: true });
     console.debug('Created datachannel');
-    dc1.onopen = function (e) {
+    dc1.onopen = (e) => {
       writeToChatLog('Datachannel connected', 'text-success');
       console.info('data channel connect');
 
@@ -78,7 +75,7 @@ function createConnection() {
       dc1.send(msg);
       writeToChatLog(msg, 'text-success');
     };
-    dc1.onmessage = function (e) {
+    dc1.onmessage = (e) => {
       console.info('Got message', e.data);
       writeToChatLog(e.data, 'text-info');
     };
@@ -91,70 +88,43 @@ function createConnection() {
   }
 }
 
-$('#offerRecdBtn').click(function () {
-  clearIntervalAsync(interval);
+$(document).ready(() => {
+  $('#offerRecdBtn').click(() => clearIntervalAsync(interval));
 });
 
-function publishOffer(c) {
-  console.debug(JSON.stringify(c.localDescription));
-  return IOTA.publishOffer(c.localDescription).then((b) => {
-    writeToChatLog('Published offer', 'text-success');
-    address = b[0].address;
-    const link = receiverUrl + '?bundle=' + b[0].hash;
-    console.info(link);
-    $('#copyLink').val(link);
-    $('#link').html(`<a href="${link}" target="_blank">Join</a>`);
-  });
+function publishOffer() {
+  return IOTA.publishOffer(connections.map((c) => c.localDescription)).then(
+    (b) => {
+      writeToChatLog('Published offers', 'text-success');
+      address = b[0].address;
+      const link = receiverUrl + '?bundle=' + b[0].hash;
+      console.info(link);
+      $('#copyLink').val(link);
+      $('#link').html(`<a href="${link}" target="_blank">Join</a>`);
+    }
+  );
 }
 
-pc1.onicecandidate = function (e) {
-  if (e.candidate == null) {
-    publishOffer(pc1).then(() => {
-      interval = setIntervalAsync(() => {
-        console.debug('Fetching answers...');
-        return IOTA.fetchAnswers(address).then((answers) =>
-          Promise.all(
-            answers
-              .filter((a) => connected.indexOf(a.sdp) === -1)
-              .map((answer) => {
-                if (current) {
-                  var answerDesc = new RTCSessionDescription(answer);
-                  handleAnswerFromPC2(current, answerDesc);
-                  current = null;
-                  const c = createConnection();
-                  connected.push(answer.sdp);
-                  c.onicecandidate = (e) => {
-                    if (e.candidate == null) {
-                      publishOffer(c);
-                    }
-                  };
-                  return c.createOffer(
-                    function (desc) {
-                      current = c;
-                      c.setLocalDescription(
-                        desc,
-                        function () {},
-                        function () {}
-                      );
-                      console.info('created local offer', desc);
-                    },
-                    function () {
-                      console.warn("Couldn't create offer");
-                    },
-                    sdpConstraints
-                  );
-                }
-                // clearIntervalAsync(interval);
-              })
-          )
-        );
-      }, 2000);
-    });
-  }
-};
+function waitForAnswers() {
+  interval = setIntervalAsync(() => {
+    console.debug('Fetching answers...');
+    return IOTA.fetchAnswers(address).then((answers) =>
+      answers
+        .filter((a) => processed.indexOf(a.sdp) === -1)
+        .filter((a) => usedIndices.indexOf(a.index) === -1)
+        .forEach((msg) => {
+          const answerDesc = new RTCSessionDescription(msg.localDescription);
+          handleAnswerFromPC2(connections[msg.index], answerDesc);
+          processed.push(msg.localDescription.sdp);
+          usedIndices.push(msg.index);
+        })
+    );
+  }, 2000);
+}
 
 function handleAnswerFromPC2(c, answerDesc) {
-  console.info('Received remote answer: ', answerDesc);
+  console.info('Received remote answer');
+  console.debug(answerDesc);
   writeToChatLog('Received remote answer', 'text-success');
   c.setRemoteDescription(answerDesc);
 }
